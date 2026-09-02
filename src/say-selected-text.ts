@@ -1,5 +1,5 @@
 import { Detail, getSelectedText } from "@raycast/api";
-import { useEffect, useState } from "react";
+import { createElement, useEffect, useState } from "react";
 import { formatStatus, getTtsStatus, say } from "./tts-api";
 
 export default function Command() {
@@ -71,5 +71,5 @@ export default function Command() {
     };
   }, []);
 
-  return <Detail markdown={markdown} isLoading={loading} />;
+  return createElement(Detail, { markdown, isLoading: loading });
 }
