@@ -1,11 +1,11 @@
 import { getSelectedText, launchCommand, LaunchType, showHUD } from "@raycast/api";
-import { say } from "./tts-api";
+import { say, type TtsLanguage } from "./tts-api";
 
 async function openStatus() {
   await launchCommand({ name: "tts-status", type: LaunchType.UserInitiated });
 }
 
-export default async function Command() {
+export default async function Command(props: { arguments?: { language?: string } }) {
   let text: string;
 
   try {
@@ -21,8 +21,10 @@ export default async function Command() {
     return;
   }
 
+  const language: TtsLanguage = props.arguments?.language === "English" ? "English" : "Italian";
+
   try {
-    const response = await say(text);
+    const response = await say(text, language);
 
     if (response.status === 409) {
       await openStatus();
