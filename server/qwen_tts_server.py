@@ -32,6 +32,7 @@ class State:
         self.phase = "starting"
         self.current_text = None
         self.last_error = None
+        self.current_language = LANGUAGE
         self.jobs = queue.Queue(maxsize=1)
         self.player = None
         self.logs = deque(maxlen=50)
@@ -78,6 +79,10 @@ class State:
         with self.lock:
             self.phase = phase
 
+    def set_language(self, language: str):
+        with self.lock:
+            self.current_language = language
+
     def set_error(self, error: str):
         with self.lock:
             self.last_error = error
@@ -101,7 +106,7 @@ class State:
                 "logs": list(self.logs),
                 "model": MODEL,
                 "speaker": SPEAKER,
-                "language": LANGUAGE,
+                "language": self.current_language,
             }
 
 
@@ -110,8 +115,14 @@ state = State()
 
 def tts_worker():
     try:
+        from lingua import Language, LanguageDetectorBuilder
         from mlx_audio.sts.audio_player import AudioPlayer
         from mlx_audio.tts.utils import load_model
+
+        language_detector = LanguageDetectorBuilder.from_languages(
+            Language.ENGLISH,
+            Language.ITALIAN,
+        ).build()
 
         state.record(f"Loading model {MODEL}")
         model = load_model(MODEL)
@@ -131,12 +142,21 @@ def tts_worker():
         try:
             generated_audio = False
             state.set_phase("generating")
+
+            if LANGUAGE.lower() == "auto":
+                detected = language_detector.detect_language_of(text)
+                language = "Italian" if detected == Language.ITALIAN else "English"
+            else:
+                language = LANGUAGE
+
+            state.set_language(language)
+            state.record(f"Detected language: {language}")
             state.record("Generating speech")
 
             for result in model.generate_custom_voice(
                 text=text,
                 speaker=SPEAKER,
-                language=LANGUAGE,
+                language=language,
                 stream=True,
                 streaming_interval=STREAMING_INTERVAL,
             ):
