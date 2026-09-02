@@ -1,5 +1,7 @@
 const SERVER = "http://127.0.0.1:8765";
 
+export type TtsLanguage = "Italian" | "English";
+
 export type TtsStatus = {
   ready: boolean;
   busy: boolean;
@@ -24,11 +26,11 @@ export async function getTtsStatus(): Promise<TtsStatus> {
   return (await response.json()) as TtsStatus;
 }
 
-export async function say(text: string): Promise<Response> {
+export async function say(text: string, language: TtsLanguage = "Italian"): Promise<Response> {
   return fetch(`${SERVER}/say`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text, language }),
     signal: AbortSignal.timeout(2000),
   });
 }
