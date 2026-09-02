@@ -1,8 +1,8 @@
 import { Clipboard, launchCommand, LaunchType, showHUD } from "@raycast/api";
 import { say, type TtsLanguage } from "./tts-api";
 
-async function openStatus() {
-  await launchCommand({ name: "tts-status", type: LaunchType.UserInitiated });
+async function openCommand(name: "tts-status" | "set-reference-voice") {
+  await launchCommand({ name, type: LaunchType.UserInitiated });
 }
 
 export default async function Command(props: { arguments?: { language?: string } }) {
@@ -18,8 +18,13 @@ export default async function Command(props: { arguments?: { language?: string }
   try {
     const response = await say(text, language);
 
+    if (response.status === 412) {
+      await openCommand("set-reference-voice");
+      return;
+    }
+
     if (response.status === 409) {
-      await openStatus();
+      await openCommand("tts-status");
       return;
     }
 
@@ -28,7 +33,7 @@ export default async function Command(props: { arguments?: { language?: string }
       return;
     }
 
-    await openStatus();
+    await openCommand("tts-status");
   } catch {
     await showHUD("Qwen TTS server is not running");
   }

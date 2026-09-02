@@ -1,11 +1,14 @@
 # Qwen TTS
 
-Minimal Raycast extension for speaking selected text with a local Qwen3-TTS model.
+Raycast extension for speaking selected or clipboard text with a local Qwen3-TTS model.
 
-It exposes exactly two commands:
+Commands:
 
 - **Say Selected Text**
+- **Say Clipboard Text**
 - **Stop Running Say**
+- **Set Reference Voice**
+- **Qwen TTS Status**
 
 The Raycast commands talk to a small daemon on `127.0.0.1:8765`. The daemon is installed as a macOS LaunchAgent, starts at login, keeps the model loaded, streams audio as it is generated, and only accepts one speech job at a time.
 
@@ -14,10 +17,16 @@ The Raycast commands talk to a small daemon on `127.0.0.1:8765`. The daemon is i
 Default:
 
 ```text
-mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit
+mlx-community/Qwen3-TTS-12Hz-0.6B-Base-8bit
 ```
 
-Default speaker is `Ryan` and language is `auto`.
+The Base model clones a voice from a reference WAV sample. The reference is stored locally in:
+
+```text
+~/Library/Application Support/qwen-tts/reference.wav
+```
+
+Its transcript is stored next to it in `reference.json`.
 
 ## Install
 
@@ -32,6 +41,8 @@ npm run dev
 ```
 
 The first daemon start downloads the model. Later logins start it automatically and keep it warm.
+
+After installation, run **Set Reference Voice** in Raycast. Choose a clean WAV sample and enter the exact words spoken in the sample. A short sample with one speaker and little background noise works best.
 
 Daemon logs are written to:
 
@@ -51,8 +62,9 @@ The daemon supports these environment variables:
 
 ```text
 QWEN_TTS_MODEL
-QWEN_TTS_SPEAKER
 QWEN_TTS_LANGUAGE
 QWEN_TTS_STREAMING_INTERVAL
 QWEN_TTS_PORT
+QWEN_TTS_REFERENCE_AUDIO
+QWEN_TTS_REFERENCE_CONFIG
 ```

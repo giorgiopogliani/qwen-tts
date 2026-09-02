@@ -10,8 +10,9 @@ export type TtsStatus = {
   last_error: string | null;
   logs: string[];
   model: string;
-  speaker: string;
   language: string;
+  reference_configured: boolean;
+  reference_audio: string | null;
 };
 
 export async function getTtsStatus(): Promise<TtsStatus> {
@@ -46,6 +47,9 @@ export function formatStatus(status: TtsStatus, heading = "Qwen TTS"): string {
     : "";
 
   const error = status.last_error ? `\n### Error\n\n${status.last_error}\n` : "";
+  const reference = status.reference_configured
+    ? `Configured${status.reference_audio ? ` (${status.reference_audio})` : ""}`
+    : "Not configured";
 
-  return `# ${heading}\n\n**Status:** ${phase}\n\n**Model:** ${status.model}\n\n**Voice:** ${status.speaker} · ${status.language}\n${currentText}${error}\n### Recent Logs\n\n\`\`\`text\n${logs}\n\`\`\``;
+  return `# ${heading}\n\n**Status:** ${phase}\n\n**Model:** ${status.model}\n\n**Language:** ${status.language}\n\n**Reference:** ${reference}\n${currentText}${error}\n### Recent Logs\n\n\`\`\`text\n${logs}\n\`\`\``;
 }

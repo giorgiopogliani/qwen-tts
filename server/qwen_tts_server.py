@@ -13,15 +13,52 @@ HOST = "127.0.0.1"
 PORT = int(os.getenv("QWEN_TTS_PORT", "8765"))
 MODEL = os.getenv(
     "QWEN_TTS_MODEL",
-    "mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit",
+    "mlx-community/Qwen3-TTS-12Hz-0.6B-Base-8bit",
 )
-SPEAKER = os.getenv("QWEN_TTS_SPEAKER", "Ryan")
 DEFAULT_LANGUAGE = os.getenv("QWEN_TTS_LANGUAGE", "Italian")
 STREAMING_INTERVAL = float(os.getenv("QWEN_TTS_STREAMING_INTERVAL", "0.32"))
 SUPPORTED_LANGUAGES = {"Italian", "English"}
+APP_DIR = os.path.expanduser("~/Library/Application Support/qwen-tts")
+REFERENCE_AUDIO = os.getenv(
+    "QWEN_TTS_REFERENCE_AUDIO",
+    os.path.join(APP_DIR, "reference.wav"),
+)
+REFERENCE_CONFIG = os.getenv(
+    "QWEN_TTS_REFERENCE_CONFIG",
+    os.path.join(APP_DIR, "reference.json"),
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("qwen-tts")
+
+
+def reference_is_configured() -> bool:
+    if not os.path.isfile(REFERENCE_AUDIO) or not os.path.isfile(REFERENCE_CONFIG):
+        return False
+
+    try:
+        with open(REFERENCE_CONFIG, encoding="utf-8") as handle:
+            config = json.load(handle)
+        return bool(str(config.get("ref_text", "")).strip())
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return False
+
+
+def load_reference() -> tuple[str, str]:
+    if not os.path.isfile(REFERENCE_AUDIO):
+        raise RuntimeError("Reference audio is not configured")
+
+    try:
+        with open(REFERENCE_CONFIG, encoding="utf-8") as handle:
+            config = json.load(handle)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError("Reference voice configuration is invalid") from exc
+
+    ref_text = str(config.get("ref_text", "")).strip()
+    if not ref_text:
+        raise RuntimeError("Reference transcript is not configured")
+
+    return REFERENCE_AUDIO, ref_text
 
 
 class State:
@@ -103,8 +140,11 @@ class State:
                 "last_error": self.last_error,
                 "logs": list(self.logs),
                 "model": MODEL,
-                "speaker": SPEAKER,
                 "language": self.current_language,
+                "reference_configured": reference_is_configured(),
+                "reference_audio": os.path.basename(REFERENCE_AUDIO)
+                if os.path.isfile(REFERENCE_AUDIO)
+                else None,
             }
 
 
@@ -132,15 +172,17 @@ def tts_worker():
     while True:
         text, language = state.jobs.get()
         try:
+            ref_audio, ref_text = load_reference()
             generated_audio = False
             state.set_phase("generating")
             state.record(f"Language: {language}")
-            state.record("Generating speech")
+            state.record("Generating speech from reference voice")
 
-            for result in model.generate_custom_voice(
+            for result in model.generate(
                 text=text,
-                speaker=SPEAKER,
-                language=language,
+                lang_code=language,
+                ref_audio=ref_audio,
+                ref_text=ref_text,
                 stream=True,
                 streaming_interval=STREAMING_INTERVAL,
             ):
@@ -175,7 +217,14 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/health":
             status = state.status()
-            self.send_json(200, {"ready": status["ready"], "busy": status["busy"]})
+            self.send_json(
+                200,
+                {
+                    "ready": status["ready"],
+                    "busy": status["busy"],
+                    "reference_configured": status["reference_configured"],
+                },
+            )
             return
 
         if self.path == "/status":
@@ -206,6 +255,10 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError("unsupported language")
         except (ValueError, TypeError, json.JSONDecodeError):
             self.send_json(400, {"error": "invalid request"})
+            return
+
+        if not reference_is_configured():
+            self.send_json(412, {"error": "reference voice is not configured"})
             return
 
         result = state.submit(text, language)

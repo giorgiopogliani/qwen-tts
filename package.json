@@ -19,14 +19,8 @@
           "type": "dropdown",
           "placeholder": "Read as Italian",
           "data": [
-            {
-              "title": "Read as Italian",
-              "value": "Italian"
-            },
-            {
-              "title": "Read as English",
-              "value": "English"
-            }
+            { "title": "Read as Italian", "value": "Italian" },
+            { "title": "Read as English", "value": "English" }
           ]
         }
       ]
@@ -42,14 +36,8 @@
           "type": "dropdown",
           "placeholder": "Read as Italian",
           "data": [
-            {
-              "title": "Read as Italian",
-              "value": "Italian"
-            },
-            {
-              "title": "Read as English",
-              "value": "English"
-            }
+            { "title": "Read as Italian", "value": "Italian" },
+            { "title": "Read as English", "value": "English" }
           ]
         }
       ]
@@ -59,6 +47,12 @@
       "title": "Stop Running Say",
       "description": "Stop the current Qwen TTS speech",
       "mode": "no-view"
+    },
+    {
+      "name": "set-reference-voice",
+      "title": "Set Reference Voice",
+      "description": "Choose a WAV sample and transcript for voice cloning",
+      "mode": "view"
     },
     {
       "name": "tts-status",
