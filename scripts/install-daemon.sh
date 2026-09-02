@@ -13,11 +13,11 @@ cp "$ROOT_DIR/server/qwen_tts_server.py" "$APP_DIR/server.py"
 
 if command -v uv >/dev/null 2>&1; then
   uv venv --clear "$VENV"
-  uv pip install --python "$VENV/bin/python" mlx-audio
+  uv pip install --python "$VENV/bin/python" mlx-audio lingua-language-detector
 else
   python3 -m venv --clear "$VENV"
   "$VENV/bin/python" -m pip install --upgrade pip
-  "$VENV/bin/python" -m pip install mlx-audio
+  "$VENV/bin/python" -m pip install mlx-audio lingua-language-detector
 fi
 
 cat > "$PLIST" <<EOF
