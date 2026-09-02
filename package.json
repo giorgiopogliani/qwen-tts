@@ -12,7 +12,13 @@
       "name": "say-selected-text",
       "title": "Say Selected Text",
       "description": "Speak the currently selected text with local Qwen TTS",
-      "mode": "view"
+      "mode": "no-view"
+    },
+    {
+      "name": "say-clipboard-text",
+      "title": "Say Clipboard Text",
+      "description": "Speak the current clipboard text with local Qwen TTS",
+      "mode": "no-view"
     },
     {
       "name": "stop-running-say",
