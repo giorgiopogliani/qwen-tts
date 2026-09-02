@@ -16,8 +16,9 @@ MODEL = os.getenv(
     "mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit",
 )
 SPEAKER = os.getenv("QWEN_TTS_SPEAKER", "Ryan")
-LANGUAGE = os.getenv("QWEN_TTS_LANGUAGE", "auto")
+DEFAULT_LANGUAGE = os.getenv("QWEN_TTS_LANGUAGE", "Italian")
 STREAMING_INTERVAL = float(os.getenv("QWEN_TTS_STREAMING_INTERVAL", "0.32"))
+SUPPORTED_LANGUAGES = {"Italian", "English"}
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("qwen-tts")
@@ -32,7 +33,7 @@ class State:
         self.phase = "starting"
         self.current_text = None
         self.last_error = None
-        self.current_language = LANGUAGE
+        self.current_language = DEFAULT_LANGUAGE
         self.jobs = queue.Queue(maxsize=1)
         self.player = None
         self.logs = deque(maxlen=50)
@@ -43,7 +44,7 @@ class State:
             self.logs.append(entry)
         log.info(message)
 
-    def submit(self, text: str) -> str:
+    def submit(self, text: str, language: str) -> str:
         if not self.ready.is_set():
             return "starting"
 
@@ -54,8 +55,9 @@ class State:
             self.busy = True
             self.phase = "queued"
             self.current_text = text
+            self.current_language = language
             self.last_error = None
-            self.jobs.put_nowait(text)
+            self.jobs.put_nowait((text, language))
 
         self.record("Speech job accepted")
         return "accepted"
@@ -78,10 +80,6 @@ class State:
     def set_phase(self, phase: str):
         with self.lock:
             self.phase = phase
-
-    def set_language(self, language: str):
-        with self.lock:
-            self.current_language = language
 
     def set_error(self, error: str):
         with self.lock:
@@ -115,14 +113,8 @@ state = State()
 
 def tts_worker():
     try:
-        from lingua import Language, LanguageDetectorBuilder
         from mlx_audio.sts.audio_player import AudioPlayer
         from mlx_audio.tts.utils import load_model
-
-        language_detector = LanguageDetectorBuilder.from_languages(
-            Language.ENGLISH,
-            Language.ITALIAN,
-        ).build()
 
         state.record(f"Loading model {MODEL}")
         model = load_model(MODEL)
@@ -138,19 +130,11 @@ def tts_worker():
         os._exit(1)
 
     while True:
-        text = state.jobs.get()
+        text, language = state.jobs.get()
         try:
             generated_audio = False
             state.set_phase("generating")
-
-            if LANGUAGE.lower() == "auto":
-                detected = language_detector.detect_language_of(text)
-                language = "Italian" if detected == Language.ITALIAN else "English"
-            else:
-                language = LANGUAGE
-
-            state.set_language(language)
-            state.record(f"Detected language: {language}")
+            state.record(f"Language: {language}")
             state.record("Generating speech")
 
             for result in model.generate_custom_voice(
@@ -215,13 +199,16 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError("invalid body size")
             payload = json.loads(self.rfile.read(length))
             text = payload.get("text", "").strip()
+            language = payload.get("language", DEFAULT_LANGUAGE)
             if not text:
                 raise ValueError("text is required")
+            if language not in SUPPORTED_LANGUAGES:
+                raise ValueError("unsupported language")
         except (ValueError, TypeError, json.JSONDecodeError):
             self.send_json(400, {"error": "invalid request"})
             return
 
-        result = state.submit(text)
+        result = state.submit(text, language)
         if result == "accepted":
             self.send_json(202, {"status": "accepted"})
         elif result == "busy":
