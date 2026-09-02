@@ -1,4 +1,4 @@
-import { Detail, getSelectedText } from "@raycast/api";
+import { Clipboard, Detail, getSelectedText } from "@raycast/api";
 import { useEffect, useState } from "react";
 import { formatStatus, getTtsStatus, say } from "./tts-api";
 
@@ -25,13 +25,29 @@ export default function Command() {
       }
     }
 
+    async function getText(): Promise<{ text: string; source: "selection" | "clipboard" }> {
+      try {
+        const selected = (await getSelectedText()).trim();
+        if (selected) return { text: selected, source: "selection" };
+      } catch {
+        // Some applications do not expose their current selection to Raycast.
+      }
+
+      const clipboard = ((await Clipboard.readText()) ?? "").trim();
+      return { text: clipboard, source: "clipboard" };
+    }
+
     async function run() {
       try {
-        const text = (await getSelectedText()).trim();
+        const { text, source } = await getText();
         if (!text) {
-          setMarkdown("# Say Selected Text\n\nNo text selected.");
+          setMarkdown("# Say Selected Text\n\nCould not read selected text, and the clipboard is empty.");
           setLoading(false);
           return;
+        }
+
+        if (source === "clipboard") {
+          setMarkdown("# Say Selected Text\n\nSelected text is unavailable in this app. Using clipboard text…");
         }
 
         const response = await say(text);
@@ -52,7 +68,7 @@ export default function Command() {
         timer = setInterval(refresh, 500);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        setMarkdown(`# Say Selected Text\n\n${message || "Failed to read selected text."}`);
+        setMarkdown(`# Say Selected Text\n\n${message || "Failed to start speech."}`);
         setLoading(false);
       }
     }
