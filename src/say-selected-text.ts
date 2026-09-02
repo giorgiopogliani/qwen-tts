@@ -1,47 +1,75 @@
-import { getSelectedText, showHUD } from "@raycast/api";
+import { Detail, getSelectedText } from "@raycast/api";
+import { useEffect, useState } from "react";
+import { formatStatus, getTtsStatus, say } from "./tts-api";
 
-const SERVER = "http://127.0.0.1:8765";
+export default function Command() {
+  const [markdown, setMarkdown] = useState("# Qwen TTS\n\nReading selected text…");
+  const [loading, setLoading] = useState(true);
 
-export default async function Command() {
-  let text: string;
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | undefined;
 
-  try {
-    text = (await getSelectedText()).trim();
-  } catch {
-    await showHUD("No text selected");
-    return;
-  }
-
-  if (!text) {
-    await showHUD("No text selected");
-    return;
-  }
-
-  try {
-    const response = await fetch(`${SERVER}/say`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text }),
-      signal: AbortSignal.timeout(2000),
-    });
-
-    if (response.status === 202) {
-      await showHUD("Speaking");
-      return;
+    async function refresh() {
+      try {
+        const status = await getTtsStatus();
+        if (!cancelled) {
+          setMarkdown(formatStatus(status, "Say Selected Text"));
+          setLoading(status.phase === "starting" || status.busy);
+        }
+      } catch {
+        if (!cancelled) {
+          setMarkdown("# Qwen TTS\n\nServer is not running.");
+          setLoading(false);
+        }
+      }
     }
 
-    if (response.status === 409) {
-      await showHUD("Already speaking");
-      return;
+    async function run() {
+      let text: string;
+
+      try {
+        text = (await getSelectedText()).trim();
+      } catch {
+        setMarkdown("# Say Selected Text\n\nNo text selected.");
+        setLoading(false);
+        return;
+      }
+
+      if (!text) {
+        setMarkdown("# Say Selected Text\n\nNo text selected.");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await say(text);
+
+        if (response.status === 409) {
+          setMarkdown("# Say Selected Text\n\nAnother speech job is already running.");
+        } else if (response.status === 503) {
+          setMarkdown("# Say Selected Text\n\nModel is still starting…");
+        } else if (!response.ok) {
+          setMarkdown(`# Say Selected Text\n\nServer returned ${response.status}.`);
+          setLoading(false);
+          return;
+        }
+
+        await refresh();
+        timer = setInterval(refresh, 500);
+      } catch {
+        setMarkdown("# Qwen TTS\n\nServer is not running.");
+        setLoading(false);
+      }
     }
 
-    if (response.status === 503) {
-      await showHUD("Qwen TTS is starting");
-      return;
-    }
+    void run();
 
-    await showHUD("Qwen TTS error");
-  } catch {
-    await showHUD("Qwen TTS server is not running");
-  }
+    return () => {
+      cancelled = true;
+      if (timer) clearInterval(timer);
+    };
+  }, []);
+
+  return <Detail markdown={markdown} isLoading={loading} />;
 }
