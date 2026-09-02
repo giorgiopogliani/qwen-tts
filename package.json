@@ -12,13 +12,47 @@
       "name": "say-selected-text",
       "title": "Say Selected Text",
       "description": "Speak the currently selected text with local Qwen TTS",
-      "mode": "no-view"
+      "mode": "no-view",
+      "arguments": [
+        {
+          "name": "language",
+          "type": "dropdown",
+          "placeholder": "Read as Italian",
+          "data": [
+            {
+              "title": "Read as Italian",
+              "value": "Italian"
+            },
+            {
+              "title": "Read as English",
+              "value": "English"
+            }
+          ]
+        }
+      ]
     },
     {
       "name": "say-clipboard-text",
       "title": "Say Clipboard Text",
       "description": "Speak the current clipboard text with local Qwen TTS",
-      "mode": "no-view"
+      "mode": "no-view",
+      "arguments": [
+        {
+          "name": "language",
+          "type": "dropdown",
+          "placeholder": "Read as Italian",
+          "data": [
+            {
+              "title": "Read as Italian",
+              "value": "Italian"
+            },
+            {
+              "title": "Read as English",
+              "value": "English"
+            }
+          ]
+        }
+      ]
     },
     {
       "name": "stop-running-say",
